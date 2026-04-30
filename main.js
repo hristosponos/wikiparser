@@ -3,7 +3,7 @@ import fs from 'fs';
 import * as cheerio from 'cheerio';
 import md5 from 'md5';
 import { exit } from 'process';
-let cacheDir = import.meta.dirname + '/cache';
+let cacheDir = import.meta.dirname + '/parser-cache';
 
 // Create cache folder if it doesnt exist
 if(!fs.existsSync(cacheDir)){
@@ -48,11 +48,9 @@ async function parsePage(url){
     const linksCacheFile = cacheDir + `/${md5(url)}.links`;
     fs.writeFileSync(linksCacheFile, links.join('\n'), 'utf-8');
 
-    // Recursively parse each link
+    // Recurse on each link asynchronously
     for (const link of links) {
-        if (link.startsWith('/wiki/')) {
-            await parsePage('https://en.wikipedia.org' + link);
-        }
+        setImmediate(() => parsePage(link)); // Use setImmediate to avoid stack overflow
     }
 }
 
