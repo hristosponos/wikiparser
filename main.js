@@ -15,7 +15,6 @@ let pagesScanned = 0;
 
 async function parsePage(url){
     pagesScanned++;
-    let body;
     const cacheFile = cacheDir + `/${md5(url)}`;
     let links = [];
 
@@ -29,19 +28,29 @@ async function parsePage(url){
             exit(0);
         }
     } else { 
-        const $ = cheerio.load(body);
-        // Parse all links from the wiki page
-        $('#bodyContent a').each((_, el) => {
-            const href = $(el).attr('href');
-            if (href) {
-                if (href.startsWith('#')) return;
-                links.push(href);
-                if (href === target) {
-                    console.log(`Found target link: ${target}. Scanned ${pagesScanned} pages.`);
-                    exit(0);
+        if (!url.includes('https://en.wikipedia.org')) 
+            url = 'https://en.wikipedia.org' + url;
+        console.log('fethcing ' + url)
+        try {
+            let res = await fetch(url);
+            let body = await res.text();
+            const $ = cheerio.load(body);
+            // Parse all links from the wiki page
+            $('#bodyContent a').each((_, el) => {
+                const href = $(el).attr('href');
+                if (href) {
+                    if (href.startsWith('#')) return;
+                    links.push(href);
+                    if (('https://en.wikipedia.org' + href) === target) {
+                        console.log(`Found target link: ${target}. Scanned ${pagesScanned} pages.`);
+                        exit(0);
+                    }
                 }
-            }
-        });
+            });
+        } catch {
+            console.error(`Failed to fetch ${url}`);
+            return;
+        }
     }
 
     // Store links in cache
@@ -54,4 +63,4 @@ async function parsePage(url){
     }
 }
 
-parsePage('https://en.wikipedia.org/wiki/Artificial_intelligence');
+parsePage('/wiki/Artificial_intelligence');
