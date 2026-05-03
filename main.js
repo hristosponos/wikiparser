@@ -26,28 +26,30 @@ async function getLinksFromPage(url){
     pagesScanned++;
     const cacheFile = cacheDir + `/${md5(url)}.links`;
     let links = [];
+    let fetchUrl;
 
     if(fs.existsSync(cacheFile)){
         console.log(`Cache hit for ${url}`);
         let fileContent = fs.readFileSync(cacheFile, 'utf-8');
         links = fileContent.split('\n').filter(link => link.trim());
         if(links.includes(target)){
-            console.log(`Found target link: ${target}. Scanned ${pagesScanned} pages.`);
+            console.log(`- Found target link: ${target}. Scanned ${pagesScanned} pages.`);
             exit(0);
         }
     } else { 
         if (!url.includes('https://en.wikipedia.org')) 
-            url = 'https://en.wikipedia.org' + url;
+            fetchUrl = 'https://en.wikipedia.org' + url;
         try {
-            let res = await fetch(url);
+            let res = await fetch(fetchUrl);
+            await sleep(50);
             let body = await res.text();
             const $ = cheerio.load(body);
-            console.log(`Parsed ${url}, found ${$('#bodyContent a').length} links.`);
-            // Parse all links from the wiki page
-            $('#bodyContent a').each((_, el) => {
+            console.log('+ Parsed ' + fetchUrl);
+
+            $('#mw-content-text a').each((_, el) => {
                 const href = $(el).attr('href');
                 if (href) {
-                    if (href.startsWith('#') || !href.startsWith("/wiki/") || href.includes(":") || linkQueue.includes(href)) return;
+                    if (href.startsWith('#') || !href.startsWith("/wiki/") || href.includes(":") || visited.has(href)) return;
                     links.push(href);
                     if (href === target) {
                         console.log(`Found target link: ${target}. Scanned ${pagesScanned} pages.`);
@@ -61,15 +63,13 @@ async function getLinksFromPage(url){
         }
     }
 
-    fs.writeFileSync(cacheDir + `/${md5(url)}.links`, links.join('\n'), 'utf-8');
+    fs.writeFileSync(cacheFile, links.join('\n'), 'utf-8');
     
     links.forEach(link => {
         if (!visited.has(link)) {
             linkQueue.push(link);
         }
     });
-    
-    await sleep(500);
     
     return links;
 }
