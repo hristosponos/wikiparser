@@ -3,7 +3,7 @@ import fs, { link } from 'fs';
 import * as cheerio from 'cheerio';
 import md5 from 'md5';
 import { exit } from 'process';
-import inquirer from 'inquirer';
+import input from 'input';
 let cacheDir = import.meta.dirname + '/parser-cache';
 
 // Create cache folder if it doesnt exist
@@ -15,10 +15,11 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-
-let target =  '/wiki/Good_Friday';
+const startPage = await input.text('Enter a Wikipedia page to start from (e.g. /wiki/Artificial_intelligence): ', { default: '/wiki/Artificial_intelligence' });
+const target = await input.text('Enter a target Wikipedia page (e.g. /wiki/Robotics): ', { default: '/wiki/Robotics' });
 let pagesScanned = 0;
 let linkQueue = [];
+let visited = new Set();
 
 
 async function getLinksFromPage(url){
@@ -29,8 +30,7 @@ async function getLinksFromPage(url){
     if(fs.existsSync(cacheFile)){
         console.log(`Cache hit for ${url}`);
         let fileContent = fs.readFileSync(cacheFile, 'utf-8');
-        links = fileContent.split('\n');
-        // Check if target link is in cached links
+        links = fileContent.split('\n').filter(link => link.trim());
         if(links.includes(target)){
             console.log(`Found target link: ${target}. Scanned ${pagesScanned} pages.`);
             exit(0);
@@ -49,8 +49,7 @@ async function getLinksFromPage(url){
                 if (href) {
                     if (href.startsWith('#') || !href.startsWith("/wiki/") || href.includes(":") || linkQueue.includes(href)) return;
                     links.push(href);
-                    console.log(href, "\n", target)
-                    if (('https://en.wikipedia.org' + href) === target) {
+                    if (href === target) {
                         console.log(`Found target link: ${target}. Scanned ${pagesScanned} pages.`);
                         exit(0);
                     }
@@ -62,37 +61,29 @@ async function getLinksFromPage(url){
         }
     }
 
-    // Store links in cache
-    const linksCacheFile = cacheDir + `/${md5(url)}`;
-    fs.writeFileSync(linksCacheFile, links.join('\n'), 'utf-8');
+    fs.writeFileSync(cacheDir + `/${md5(url)}.links`, links.join('\n'), 'utf-8');
     
-    await sleep(100);    
+    links.forEach(link => {
+        if (!visited.has(link)) {
+            linkQueue.push(link);
+        }
+    });
+    
+    await sleep(500);
     
     return links;
-    // Recurse on each link asynchronously
-    for (const link of links) {
-        setImmediate(() => parsePage(link)); // Use setImmediate to avoid stack overflow
-        await sleep(1000);  
-    }
 }
 
 //parsePage('/wiki/Artificial_intelligence');
 
 
 async function main() {
-    let startPage = await inquirer.prompt({
-        type: 'input',
-        name: 'startPage',
-        message: 'Enter a Wikipedia page to start from (e.g. /wiki/Artificial_intelligence):'
-    }).then(answers => {
-        return answers.startPage;
-    });
-
     if (startPage && startPage.startsWith('/wiki/')) {
         linkQueue.push(startPage);
+        visited.add(startPage);
+        
         for (let i = 0; i < linkQueue.length; i++) {
-            console.log(`Scanning page ${i + 1} of ${linkQueue.length}: ${linkQueue[i]}`);
-            linkQueue.push(await getLinksFromPage(linkQueue[i]));
+            await getLinksFromPage(linkQueue[i]);
         }
     }
 }
