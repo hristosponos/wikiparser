@@ -15,11 +15,27 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-const startPage = await input.text('Enter a Wikipedia page to start from (e.g. /wiki/Artificial_intelligence): ', { default: '/wiki/Artificial_intelligence' });
-const target = await input.text('Enter a target Wikipedia page (e.g. /wiki/Robotics): ', { default: '/wiki/Robotics' });
+function getElapsedTime() {
+    const elapsed = Date.now() - startTime;
+    const seconds = Math.floor(elapsed / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+    
+    if (hours > 0) {
+        return `${hours}h ${minutes % 60}m ${seconds % 60}s`;
+    } else if (minutes > 0) {
+        return `${minutes}m ${seconds % 60}s`;
+    } else {
+        return `${seconds}s`;
+    }
+}
+
+const startPage = await input.text('Enter a Wikipedia page to start from (e.g. /wiki/Sigmund_Freud): ', { default: '/wiki/Sigmund_Freud' });
+const target = await input.text('Enter a target Wikipedia page (e.g. /wiki/Tallinn): ', { default: '/wiki/Tallinn' });
 let pagesScanned = 0;
 let linkQueue = [];
 let visited = new Set();
+let startTime = Date.now();
 
 
 async function getLinksFromPage(url){
@@ -33,7 +49,7 @@ async function getLinksFromPage(url){
         let fileContent = fs.readFileSync(cacheFile, 'utf-8');
         links = fileContent.split('\n').filter(link => link.trim());
         if(links.includes(target)){
-            console.log(`- Found target link: ${target}. Scanned ${pagesScanned} pages.`);
+            console.log(`Found target link: ${target}. Scanned ${pagesScanned} pages. Time: ${getElapsedTime()}`);
             exit(0);
         }
     } else { 
@@ -52,7 +68,7 @@ async function getLinksFromPage(url){
                     if (href.startsWith('#') || !href.startsWith("/wiki/") || href.includes(":") || visited.has(href)) return;
                     links.push(href);
                     if (href === target) {
-                        console.log(`Found target link: ${target}. Scanned ${pagesScanned} pages.`);
+                        console.log(`Found target link: ${target}. Scanned ${pagesScanned} pages. Time: ${getElapsedTime()}`);
                         exit(0);
                     }
                 }
